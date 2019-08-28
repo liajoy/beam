@@ -38,18 +38,17 @@ const blackPoint = beam.plugin(BlackPoint)
 const blackPointTextures = beam.resource(Textures)
 
 uniforms
-  .set('shadowThre', 0.9137)
+  .set('shadowThre', 0.91)
   .set('shadowOffset', 0.8196)
-  .set('alpha', 1)
+  .set('alpha', 0)
 
-const render = () => {
-  console.time('render')
+let isFilterComputed = false
+
+const computeFilter = () => {
   beam.clear()
-
   uniforms
     .set('width', image.width)
     .set('height', image.height)
-
   bilateralTextures.set('inputSrc', { image, flip: true })
 
   beam.offscreen2D(bilateralTarget, () => {
@@ -59,6 +58,17 @@ const render = () => {
   blackPointTextures
     .set('inputFilter', bilateralTarget)
     .set('inputSrc', { image, flip: true })
+}
+
+const render = () => {
+  console.time('render')
+
+  if (!isFilterComputed) {
+    isFilterComputed = true
+    computeFilter()
+  }
+
+  beam.clear()
   beam.draw(blackPoint, ...quadBuffers, uniforms, blackPointTextures)
 
   console.timeEnd('render')
@@ -68,7 +78,10 @@ updateImage('ivan.jpg')
 
 const $imageSelect = document.getElementById('image-select')
 $imageSelect.addEventListener('change', () => {
-  updateImage($imageSelect.value).then(render)
+  updateImage($imageSelect.value).then(() => {
+    computeFilter()
+    render()
+  })
 })
 
 const $alpha = document.getElementById('alpha')
