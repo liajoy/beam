@@ -1,8 +1,6 @@
+import { Beam, ResourceTypes, Offscreen2DCommand } from '../../../src/index.js'
 import {
-  Beam, ResourceTypes, Offscreen2DCommand, GLTypes as GL
-} from '../../../src/index.js'
-import {
-  Bilateral, BlackPoint
+  Bilateral, BlackPoint, Shadow
 } from '../../plugins/image-filter-plugins.js'
 import { createRect } from '../../utils/graphics-utils.js'
 import { loadImages } from '../../utils/image-loader.js'
@@ -32,11 +30,15 @@ const updateImage = name => loadImages(base + name).then(([_image]) => {
 })
 
 const bilateral = beam.plugin(Bilateral)
-const bilateralTextures = beam.resource(Textures)
-const bilateralTarget = beam.resource(OffscreenTarget, { size: 128 })
+const srcTextures = beam.resource(Textures)
+const bilateralTarget = beam.resource(OffscreenTarget, { size: 512 })
 
 const blackPoint = beam.plugin(BlackPoint)
-const blackPointTextures = beam.resource(Textures)
+const filterTextures = beam.resource(Textures)
+
+const tmpTarget = beam.resource(OffscreenTarget)
+const tmpTextures = beam.resource(Textures)
+const shadow = beam.plugin(Shadow)
 
 const MagFilterCommand = {
   name: 'setMagFilter',
@@ -61,29 +63,44 @@ const computeFilter = () => {
   uniforms
     .set('width', image.width)
     .set('height', image.height)
-  bilateralTextures.set('inputSrc', { image, flip: true })
+  srcTextures.set('inputSrc', { image, flip: true })
 
   beam.offscreen2D(bilateralTarget, () => {
-    beam.draw(bilateral, ...quadBuffers, uniforms, bilateralTextures)
+    beam.draw(bilateral, ...quadBuffers, uniforms, srcTextures)
   })
 
-  blackPointTextures
-    .set('inputFilter', bilateralTarget)
-    .set('inputSrc', { image, flip: true })
+  filterTextures.set('inputFilter', bilateralTarget)
+  beam.setMagFilter()
 }
 
 const render = () => {
   console.time('render')
-
   if (!isFilterComputed) {
     isFilterComputed = true
     computeFilter()
   }
 
+  // for drawing standalone black point
+  /*
+  uniforms.set('alpha', $shadowAlpha.value)
   beam
     .clear()
-    .setMagFilter()
-    .draw(blackPoint, ...quadBuffers, uniforms, blackPointTextures)
+    .draw(shadow, ...quadBuffers, uniforms, srcTextures, filterTextures)
+  */
+
+  uniforms.set('alpha', $blackPointAlpha.value)
+  beam.offscreen2D(tmpTarget, () => {
+    beam
+      .clear()
+      .draw(blackPoint, ...quadBuffers, uniforms, srcTextures, filterTextures)
+  })
+  tmpTextures.set('inputSrc', tmpTarget)
+
+  uniforms.set('alpha', $shadowAlpha.value)
+  // const { gl } = beam
+  // gl.viewport(0, 0, 2048, 2048)
+
+  beam.draw(shadow, ...quadBuffers, uniforms, tmpTextures, filterTextures)
 
   console.timeEnd('render')
 }
@@ -98,9 +115,13 @@ $imageSelect.addEventListener('change', () => {
   })
 })
 
-const $alpha = document.getElementById('alpha')
-$alpha.addEventListener('input', () => {
-  uniforms.set('alpha', $alpha.value)
+const $blackPointAlpha = document.getElementById('black-point-alpha')
+$blackPointAlpha.addEventListener('input', () => {
+  render()
+})
+
+const $shadowAlpha = document.getElementById('shadow-alpha')
+$shadowAlpha.addEventListener('input', () => {
   render()
 })
 

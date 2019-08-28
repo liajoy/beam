@@ -475,3 +475,98 @@ export const Bilateral = {
     height: { type: float }
   }
 }
+
+const shaodwFS = `
+precision highp float;
+varying vec2 vTexCoord;
+// 基础图层
+uniform sampler2D inputSrc; 
+uniform sampler2D inputFilter; 
+// 调光调整
+uniform float alpha;
+// 亮调阈值
+uniform float lighttoneThre;
+
+// 亮调阈值偏移
+uniform float lighttoneOffset;
+void main()
+{ 
+    if(lighttoneThre == 1.0)
+    {
+      vec4 src = texture2D(inputSrc, vTexCoord);
+      gl_FragColor = src;
+      return;
+    }
+    float lighttoneThre1 = lighttoneThre;
+    if(lighttoneThre == 0.0)
+    {
+      lighttoneThre1 = 0.01;
+    }
+    vec4 src = texture2D(inputSrc, vTexCoord);
+
+    vec4 filter = texture2D(inputFilter, vTexCoord); 
+
+    float cliph = 1.0;
+    if(alpha < 0.0)
+    {
+          cliph = 0.02 * alpha + 1.0;
+    }
+      
+    float gamaVal0 = 1.0 - 4.0 * alpha;
+    float g_m0 = clamp(log(0.2) / log(1.0 - lighttoneThre1), 1.01, 20.0);
+    //float g_m1 = clamp(log(0.03) / log(1.0 - lighttoneThre1), 1.01, 20.0);
+    float ratio0 = pow(max(0.0, 1.0 - filter[0]), g_m0);
+
+    float offsetd = 0.0;
+    if(lighttoneThre1 - lighttoneOffset < 0.01)
+    {
+      offsetd = 0.25;
+    }
+    else if(lighttoneThre1 - lighttoneOffset < 0.05)
+    {
+      offsetd = 0.2;
+    }
+    else if(lighttoneThre1 - lighttoneOffset < 0.1)
+    {
+      offsetd = 0.15;
+    }
+    else if(lighttoneThre1 - lighttoneOffset < 0.2)
+    {
+      offsetd = 0.1;
+    }
+
+    float g_m1 = 1.0 / pow(lighttoneThre1+offsetd, 2.0);
+    float ratio1 = g_m1 * pow(abs(lighttoneThre1 + offsetd - filter[0]), 2.0);
+    vec4 dst = src;
+    if(alpha < 0.0)
+    {
+          dst = clamp(mix(src, cliph * pow(src, vec4(gamaVal0)),ratio0), 0.0, 1.0);
+      
+    }
+    else
+    {   if(filter[0] > lighttoneThre1 + offsetd)
+            ratio1 = 0.0;
+      dst = clamp(mix(src, src * (1.0 + alpha * (-2.0 * pow(src, vec4(2.0)) + 2.0)), ratio1), 0.0, 1.0);
+    }
+
+    gl_FragColor = vec4(dst.rgb,src.a);
+}
+`
+
+export const Shadow = {
+  vs: defaultVS,
+  fs: shaodwFS,
+  buffers: {
+    position: { type: vec4, n: 3 },
+    texCoord: { type: vec2 }
+  },
+  textures: {
+    inputSrc: { type: tex2D },
+    inputFilter: { type: tex2D }
+  },
+  uniforms: {
+    lighttoneThre: { type: float, default: 0.42352 },
+    lighttoneOffset: { type: float, default: 0.2627 },
+    alpha: { type: float }
+  }
+}
