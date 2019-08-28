@@ -26,13 +26,13 @@ const base = '../../assets/images/'
 const updateImage = name => loadImages(base + name).then(([_image]) => {
   image = _image
   const aspectRatio = image.naturalWidth / image.naturalHeight
-  canvas.height = 400
-  canvas.width = 400 * aspectRatio
+  canvas.height = 800
+  canvas.width = 800 * aspectRatio
 })
 
 const bilateral = beam.plugin(Bilateral)
 const bilateralTextures = beam.resource(Textures)
-const bilateralTarget = beam.resource(OffscreenTarget, { size: 128 })
+const bilateralTarget = beam.resource(OffscreenTarget, { size: 512 })
 
 const blackPoint = beam.plugin(BlackPoint)
 const blackPointTextures = beam.resource(Textures)
