@@ -31,17 +31,17 @@ const updateImage = name => loadImages(base + name).then(([_image]) => {
 
 const bilateral = beam.plugin(Bilateral)
 const srcTextures = beam.resource(Textures)
-const bilateralTarget = beam.resource(OffscreenTarget, { size: 512 })
+const bilateralTarget = beam.resource(OffscreenTarget, { size: 256 })
 
 const blackPoint = beam.plugin(BlackPoint)
 const filterTextures = beam.resource(Textures)
 
-const tmpTarget = beam.resource(OffscreenTarget)
+const tmpTarget = beam.resource(OffscreenTarget, { size: 2048 })
 const tmpTextures = beam.resource(Textures)
 const shadow = beam.plugin(Shadow)
 
-const MagFilterCommand = {
-  name: 'setMagFilter',
+const ConfigCommand = {
+  name: 'configTexture',
   onBefore (gl) {
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, bilateralTarget.colorTexture)
@@ -49,7 +49,7 @@ const MagFilterCommand = {
   }
 }
 beam.define(Offscreen2DCommand)
-beam.define(MagFilterCommand)
+beam.define(ConfigCommand)
 
 uniforms
   .set('shadowThre', 0.91)
@@ -66,11 +66,12 @@ const computeFilter = () => {
   srcTextures.set('inputSrc', { image, flip: true })
 
   beam.offscreen2D(bilateralTarget, () => {
+    console.log(beam.gl.getParameter(beam.gl.VIEWPORT))
     beam.draw(bilateral, ...quadBuffers, uniforms, srcTextures)
   })
 
   filterTextures.set('inputFilter', bilateralTarget)
-  beam.setMagFilter()
+  beam.configTexture()
 }
 
 const render = () => {
@@ -80,32 +81,22 @@ const render = () => {
     computeFilter()
   }
 
-  // for drawing standalone black point
-  /*
-  uniforms.set('alpha', $shadowAlpha.value)
-  beam
-    .clear()
-    .draw(shadow, ...quadBuffers, uniforms, srcTextures, filterTextures)
-  */
-
   uniforms.set('alpha', $blackPointAlpha.value)
   beam.offscreen2D(tmpTarget, () => {
+    // Don't do beam.clear() here! This brings wrong viewport config.
     beam
-      .clear()
       .draw(blackPoint, ...quadBuffers, uniforms, srcTextures, filterTextures)
   })
   tmpTextures.set('inputSrc', tmpTarget)
 
   uniforms.set('alpha', $shadowAlpha.value)
-  // const { gl } = beam
-  // gl.viewport(0, 0, 2048, 2048)
 
   beam.draw(shadow, ...quadBuffers, uniforms, tmpTextures, filterTextures)
 
   console.timeEnd('render')
 }
 
-updateImage('ivan.jpg')
+updateImage('wedding.jpg')
 
 const $imageSelect = document.getElementById('image-select')
 $imageSelect.addEventListener('change', () => {
