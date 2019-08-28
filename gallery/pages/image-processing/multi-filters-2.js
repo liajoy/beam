@@ -1,4 +1,6 @@
-import { Beam, ResourceTypes, Offscreen2DCommand } from '../../../src/index.js'
+import {
+  Beam, ResourceTypes, Offscreen2DCommand, GLTypes as GL
+} from '../../../src/index.js'
 import {
   Bilateral, BlackPoint
 } from '../../plugins/image-filter-plugins.js'
@@ -10,7 +12,6 @@ const {
 
 const canvas = document.querySelector('canvas')
 const beam = new Beam(canvas)
-beam.define(Offscreen2DCommand)
 
 // Fill screen with unit quad
 const quad = createRect()
@@ -32,10 +33,21 @@ const updateImage = name => loadImages(base + name).then(([_image]) => {
 
 const bilateral = beam.plugin(Bilateral)
 const bilateralTextures = beam.resource(Textures)
-const bilateralTarget = beam.resource(OffscreenTarget, { size: 512 })
+const bilateralTarget = beam.resource(OffscreenTarget, { size: 128 })
 
 const blackPoint = beam.plugin(BlackPoint)
 const blackPointTextures = beam.resource(Textures)
+
+const MagFilterCommand = {
+  name: 'setMagFilter',
+  onBefore (gl) {
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, bilateralTarget.colorTexture)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+  }
+}
+beam.define(Offscreen2DCommand)
+beam.define(MagFilterCommand)
 
 uniforms
   .set('shadowThre', 0.91)
@@ -68,8 +80,10 @@ const render = () => {
     computeFilter()
   }
 
-  beam.clear()
-  beam.draw(blackPoint, ...quadBuffers, uniforms, blackPointTextures)
+  beam
+    .clear()
+    .setMagFilter()
+    .draw(blackPoint, ...quadBuffers, uniforms, blackPointTextures)
 
   console.timeEnd('render')
 }

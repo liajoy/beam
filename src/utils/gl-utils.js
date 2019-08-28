@@ -195,6 +195,8 @@ export const update2DTexture = (gl, texture, val) => {
     gl.texImage2D(gl.TEXTURE_2D, 0, s, s, gl.UNSIGNED_BYTE, image)
     if (supportMipmap(image)) gl.generateMipmap(gl.TEXTURE_2D)
 
+    console.log(val, supportMipmap(image))
+
     // Default workaround for non-mipmap 2D image
     if (!supportMipmap(image)) {
       if (!wrapS) wrapS = GL.ClampToEdge
