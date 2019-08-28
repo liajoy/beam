@@ -22,17 +22,16 @@
       </select>
       <label for="image-select">Image</label>
       <br/>
-      <input type="range" min="-0.5" max="0.5" value="0" step="0.01" id="brightness">
-      <label for="brightness">Brightness</label>
-      <input type="range" min="-0.3" max="0.3" value="0" step="0.01" id="contrast">
-      <label for="contrast">Contrast</label>
-      <input type="range" min="-1" max="1" value="0" step="0.01" id="hue">
-      <label for="hue">Hue</label>
-      <input type="range" min="-0.5" max="0.5" value="0" step="0.005" id="saturation">
-      <label for="saturation">Saturation</label>
-      <input type="range" min="0" max="1" value="0" step="0.005" id="vignette">
-      <label for="vignette">Vignette</label>
+      <input type="range" min="0" max="1" value="0" step="0.01" id="alpha">
+      <label for="alpha">Alpha</label>
       <br/>
+      <input type="range" min="-1" max="1" value="0.91" step="0.01" id="shadow-thre">
+      <label for="shadow-thre">Shadow Thre</label>
+      <br/>
+      <input type="range" min="-1" max="1" value="0.82" step="0.01" id="shadow-offset">
+      <label for="shadow-offset">Shadow Offset</label>
+      <br/>
+      <button id="init">init</button>
     </div>
     <canvas></canvas>
     <script type="module" src="./multi-filters-2.js"></script>

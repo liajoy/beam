@@ -1,6 +1,6 @@
 import { Beam, ResourceTypes, Offscreen2DCommand } from '../../../src/index.js'
 import {
-  Bilateral, BrightnessContrast
+  Bilateral, BlackPoint
 } from '../../plugins/image-filter-plugins.js'
 import { createRect } from '../../utils/graphics-utils.js'
 import { loadImages } from '../../utils/image-loader.js'
@@ -32,10 +32,15 @@ const updateImage = name => loadImages(base + name).then(([_image]) => {
 
 const bilateral = beam.plugin(Bilateral)
 const bilateralTextures = beam.resource(Textures)
-const bilateralTarget = beam.resource(OffscreenTarget)
+const bilateralTarget = beam.resource(OffscreenTarget, { size: 128 })
 
-const bc = beam.plugin(BrightnessContrast)
-const bcTextures = beam.resource(Textures)
+const blackPoint = beam.plugin(BlackPoint)
+const blackPointTextures = beam.resource(Textures)
+
+uniforms
+  .set('shadowThre', 0.9137)
+  .set('shadowOffset', 0.8196)
+  .set('alpha', 1)
 
 const render = () => {
   console.time('render')
@@ -45,35 +50,44 @@ const render = () => {
     .set('width', image.width)
     .set('height', image.height)
 
-  bilateralTextures.set('input1', { image, flip: true })
+  bilateralTextures.set('inputSrc', { image, flip: true })
 
   beam.offscreen2D(bilateralTarget, () => {
     beam.draw(bilateral, ...quadBuffers, uniforms, bilateralTextures)
   })
 
-  bcTextures
-    .set('input1', bilateralTarget)
-    .set('input2', { image, flip: true })
-  beam.draw(bc, ...quadBuffers, uniforms, bcTextures)
+  blackPointTextures
+    .set('inputFilter', bilateralTarget)
+    .set('inputSrc', { image, flip: true })
+  beam.draw(blackPoint, ...quadBuffers, uniforms, blackPointTextures)
 
   console.timeEnd('render')
 }
 
 updateImage('ivan.jpg')
-// .then(render)
-
-window.render = render
 
 const $imageSelect = document.getElementById('image-select')
 $imageSelect.addEventListener('change', () => {
   updateImage($imageSelect.value).then(render)
 })
 
-const fields = ['brightness', 'contrast', 'hue', 'saturation', 'vignette']
-fields.forEach(field => {
-  const $field = document.getElementById(field)
-  $field.addEventListener('input', () => {
-    uniforms.set(field, $field.value)
-    render()
-  })
+const $alpha = document.getElementById('alpha')
+$alpha.addEventListener('input', () => {
+  uniforms.set('alpha', $alpha.value)
+  render()
 })
+
+const $shadowThre = document.getElementById('shadow-thre')
+$shadowThre.addEventListener('input', () => {
+  uniforms.set('shadowThre', $shadowThre.value)
+  render()
+})
+
+const $shadowOffset = document.getElementById('shadow-offset')
+$shadowOffset.addEventListener('input', () => {
+  uniforms.set('shadowOffset', $shadowOffset.value)
+  render()
+})
+
+const $init = document.getElementById('init')
+$init.onclick = render

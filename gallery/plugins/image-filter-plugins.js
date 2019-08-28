@@ -38,44 +38,102 @@ export const BasicImage = {
   }
 }
 
-const brighnessContrastFS = `
+const blackPointFS = `
 precision highp float;
-uniform sampler2D input1;
-uniform sampler2D input2;
-uniform float brightness;
-uniform float contrast;
+varying vec2 vTexCoord;
+// 基础图层
+uniform sampler2D inputSrc; 
+uniform sampler2D inputFilter;
 
-varying highp vec2 vTexCoord;
+// 调光调整
+uniform float alpha;
+// 亮调阈值
+uniform float shadowThre;
+uniform float shadowOffset;
 
-void main() {
-  vec4 color1 = texture2D(input1, vTexCoord);
+void main()
+{  
+  if(shadowThre == 1.0)
+  {
+    vec4 src = texture2D(inputSrc, vTexCoord);
+    gl_FragColor = src;
+    return;
+  }
+  float shadowThre1 = shadowThre;
+  if(shadowThre == 0.0)
+  {
+    shadowThre1 = 0.01;
+  }
+  vec4 src = texture2D(inputSrc, vTexCoord);
 
-  vec4 color2 = texture2D(input2, vTexCoord);
-  color2.rgb += brightness;
-  if (contrast > 0.0) {
-    color2.rgb = (color2.rgb - 0.5) / (1.0 - contrast) + 0.5;
-  } else {
-    color2.rgb = (color2.rgb - 0.5) * (1.0 + contrast) + 0.5;
+  vec4 filter = texture2D(inputFilter, vTexCoord); 
+  
+  float cliph = 1.0;
+  if(alpha < 0.0)
+  {
+    cliph = 0.02 * alpha + 1.0;
+  }
+    
+  float gamaVal0 = 1.0 - 4.0 * alpha;
+  float g_m0 = clamp(log(0.2) / log(1.0 - shadowThre1), 1.01, 20.0);
+
+  float ratio0 = pow(max(0.0, 1.0 - filter[0]), g_m0);
+
+  float offsetd = 0.0;
+  if(shadowThre1 - shadowOffset < 0.01)
+  {
+    offsetd = 0.25;
+  }
+  else if(shadowThre1 - shadowOffset < 0.05)
+  {
+    offsetd = 0.2;
+  }
+  else if(shadowThre1 - shadowOffset < 0.1)
+  {
+    offsetd = 0.15;
+  }
+  else if(shadowThre1 - shadowOffset < 0.2)
+  {
+    offsetd = 0.1;
   }
 
-  gl_FragColor = vec4(color1.r, color2.gb, 1);
+  float g_m1 = 1.0 / pow(shadowThre1+offsetd, 2.0);
+  float ratio1 = g_m1 * pow(abs(filter[0] - shadowThre1 - offsetd), 2.0);
+  float g_mb = 1.0 / pow(shadowThre1+offsetd, 2.0);
+  float ratioB = g_mb * pow(abs(filter[0] - shadowThre1 - offsetd), 2.0);
+    vec4 dst = src;
+    if(alpha < 0.0)
+  {
+        dst = clamp(mix(src, cliph * pow(src, vec4(gamaVal0)),ratio0), 0.0, 1.0);
+    
+  }
+  else
+  {   if(filter[0] > shadowThre1 + offsetd)
+          ratio1 = 0.0;
+    //dst = clamp(mix(src, src * (1.0 + alpha * (-2.0 * pow(src, vec4(2.0)) + 2.0)), ratio1), 0.0, 1.0);
+    dst = clamp(mix(src, src * (1.0 + alpha * (-1.0 * pow(src, vec4(2.0)) + 1.0)), ratioB), 0.0, 1.0);
+  }
+
+  gl_FragColor = vec4(dst.rgb, src.a);
+  // gl_FragColor = vec4(filter[0],filter[0],filter[0], src.a);
 }
 `
 
-export const BrightnessContrast = {
+export const BlackPoint = {
   vs: defaultVS,
-  fs: brighnessContrastFS,
+  fs: blackPointFS,
   buffers: {
     position: { type: vec4, n: 3 },
     texCoord: { type: vec2 }
   },
   textures: {
-    input1: { type: tex2D },
-    input2: { type: tex2D }
+    inputSrc: { type: tex2D },
+    inputFilter: { type: tex2D }
   },
   uniforms: {
-    brightness: { type: float, default: 0 },
-    contrast: { type: float, default: 0 }
+    shadowThre: { type: float },
+    shadowOffset: { type: float },
+    alpha: { type: float }
   }
 }
 
@@ -153,24 +211,11 @@ export const Vignette = {
 }
 
 const bilateralFS = `
-/**************************************************************************
-* 函数名称： bilateral
-* 功能描述： 双边滤波
-* 输入参数： input1：图像数据
-* 输入参数： width：图像的宽度 
-* 输入参数： height：图像的高度 
-* 输出参数： gl_FragColor：图像数据
-* 其它说明： 
-* 特别说明：
-* 修改日期：2019-05-17  修改人： bohu
-* -----------------------------------------------
-* 17/5/19  V20190725
-**************************************************************************/
 precision highp float;
 varying vec2 vTexCoord;
 
 // 基础图层
-uniform sampler2D input1;  
+uniform sampler2D inputSrc;  
 
 // 图像宽度
 uniform float width;
@@ -331,7 +376,7 @@ vec4 gaussianBlur(sampler2D tex, float  kernelRadius, float sigma, float sigmaCo
 
 void main()
 {
-  vec4 src = texture2D(input1, vTexCoord);
+  vec4 src = texture2D(inputSrc, vTexCoord);
 
   float minV = 0.0;
   float radius = 100.0;
@@ -381,7 +426,8 @@ void main()
     // sigmaS = 10.0;
     // sigmaC = 80.0;
   }
-  gl_FragColor = vec4(gaussianBlur(input1, radius, sigmaS, sigmaC, src).rrr, 1); 
+  // radius = 1.0;
+  gl_FragColor = vec4(gaussianBlur(inputSrc, radius, sigmaS, sigmaC, src).rrr, 1); 
 }
 `
 
@@ -393,7 +439,7 @@ export const Bilateral = {
     texCoord: { type: vec2 }
   },
   textures: {
-    input1: { type: tex2D }
+    inputSrc: { type: tex2D }
   },
   uniforms: {
     width: { type: float },
